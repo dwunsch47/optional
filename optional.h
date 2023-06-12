@@ -21,7 +21,9 @@ public:
     Optional() = default;
     
     Optional(const T& value) : ptr_(new (&data_) T(value)), is_initialized_(true) {}
+    
     Optional(T&& value) : ptr_(new (&data_) T(std::move(value))), is_initialized_(true) {}
+    
     Optional(const Optional& other) {
         if (other.HasValue()) {
             ptr_ = new (&data_) T(other.Value());
@@ -79,6 +81,15 @@ public:
         }
         return *this;
     }
+    
+    template<typename... Type>
+    void Emplace(Type&&... args) {
+        if (is_initialized_) {
+            Reset();
+        }
+        ptr_ = new (&data_) T(std::forward<Type>(args)...);
+        is_initialized_ = true;
+    }
 
     ~Optional() {
         if (ptr_) {
@@ -95,12 +106,17 @@ public:
 
     // Операторы * и -> не должны делать никаких проверок на пустоту Optional.
     // Эти проверки остаются на совести программиста
-    T& operator*() {
+    T& operator*() & {
         return *ptr_;
     }
-    const T& operator*() const {
+    const T& operator*() const& {
         return *ptr_;
     }
+    
+    T&& operator*() && {
+        return std::move(*ptr_);
+    }
+    
     T* operator->() {
         return ptr_;
     }
@@ -109,16 +125,24 @@ public:
     }
 
     // Метод Value() генерирует исключение BadOptionalAccess, если Optional пуст
-    T& Value() {
+    T& Value() & {
         if (is_initialized_ && ptr_) {
             return *ptr_;
         } else {
             throw BadOptionalAccess();
         }
     }
-    const T& Value() const {
+    const T& Value() const& {
         if (is_initialized_ && ptr_) {
             return *ptr_;
+        } else {
+            throw BadOptionalAccess();
+        }
+    }
+    
+    T&& Value() && {
+        if (is_initialized_ && ptr_) {
+            return std::move(*ptr_);
         } else {
             throw BadOptionalAccess();
         }
